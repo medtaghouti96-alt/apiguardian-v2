@@ -68,7 +68,7 @@ export default async function DashboardPage() {
         </div>
       ) : (
         // This message is shown if the user has no projects yet.
-        <p>You haven't created any projects yet. Use the form below to get started.</p>
+        <p>You haven&apos;t created any projects yet. Use the form below to get started.</p>
       )}
       
       <hr style={{ margin: '3rem 0', border: 'none', borderTop: '1px solid #eee' }} />
