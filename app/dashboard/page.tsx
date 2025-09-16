@@ -8,53 +8,62 @@ import LiveRequestLog from './_components/LiveRequestLog';
 import StatWidgets from './_components/StatWidgets';
 
 /**
- * This is the main dashboard page for authenticated users.
- * As a Server Component, it securely fetches data on the server before rendering the page.
+ * This is the main dashboard page, now with added debugging logs to diagnose
+ * why the project list is not appearing.
  */
 export default async function DashboardPage() {
-  // 1. Get the user's ID from Clerk. This is a secure, server-side check.
+  // --- START OF DEBUGGING BLOCK ---
+  console.log("--- Executing DashboardPage Server Component ---");
   const { userId } = await auth();
+  
+  // This is the most important log. It tells us which user is currently logged in.
+  console.log(`Clerk auth() returned userId: ${userId}`);
+  // --- END OF DEBUGGING BLOCK ---
+
   if (!userId) {
-    // If the user is not logged in, redirect them to the sign-in page.
+    // If Clerk finds no user, redirect to the sign-in page.
     redirect('/sign-in');
   }
 
-  // 2. Create a Supabase client to fetch data.
-  // We use the service key here for secure, server-side data access.
   const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!
   );
 
-  // 3. Fetch all projects that belong to the current user from the database.
+  // We are fetching projects where the 'user_id' column matches the ID from Clerk.
   const { data: projects, error } = await supabase
     .from('projects')
     .select('id, name, apiguardian_api_key')
-    .eq('user_id', userId)
+    .eq('user_id', userId) 
     .order('created_at', { ascending: false });
 
+  // --- START OF DEBUGGING BLOCK ---
+  // This log tells us the result of our database query.
+  // If this is an empty array [], it means no projects were found for the userId above.
+  console.log(`Supabase query for projects returned: ${JSON.stringify(projects, null, 2)}`);
+  
   if (error) {
-    console.error("Error fetching projects:", error);
-    // Handle the error gracefully by showing a message to the user.
+    // If the query itself failed, we log the error message.
+    console.error("Supabase query error:", error.message);
+  }
+  // --- END OF DEBUGGING BLOCK ---
+
+  if (error) {
     return <div>Error loading your projects. Please refresh the page.</div>;
   }
   
-  // Define the constant proxy URL to display to the user.
   const proxyUrl = "https://apiguardian-v2.vercel.app/api/proxy/openai/v1";
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: 'auto' }}>
       <h1>Your Dashboard</h1>
 
-      {/* --- RENDER THE STAT WIDGETS COMPONENT --- */}
       <StatWidgets />
       
-      {/* --- RENDER THE LIVE LOG COMPONENT --- */}
       <LiveRequestLog />
       
       <hr style={{ margin: '3rem 0', border: 'none', borderTop: '1px solid #eee' }} />
       
-      {/* --- RENDER THE PROJECT LIST --- */}
       <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>Your Guardian Projects</h2>
       {projects && projects.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
@@ -77,13 +86,11 @@ export default async function DashboardPage() {
           ))}
         </div>
       ) : (
-        // This message is shown if the user has no projects yet.
         <p>You haven&apos;t created any projects yet. Use the form below to get started.</p>
       )}
       
       <hr style={{ margin: '3rem 0', border: 'none', borderTop: '1px solid #eee' }} />
 
-      {/* --- RENDER THE CREATE PROJECT FORM --- */}
       <CreateProjectForm />
     </div>
   );
