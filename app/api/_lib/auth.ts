@@ -1,7 +1,6 @@
 // File: app/api/_lib/auth.ts
 import { createClient } from '@supabase/supabase-js';
 import { decryptSecret } from './encryption';
-import { NextRequest } from 'next/server';
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 

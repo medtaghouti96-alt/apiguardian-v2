@@ -1,5 +1,5 @@
 // File: app/api/_lib/providers/openai.ts
-import { ProviderAdapter, ProviderRequestData } from './interface';
+import { ProviderAdapter } from './interface';
 export const OpenAIAdapter: ProviderAdapter = {
   id: 'openai',
   transformRequest(decryptedApiKey, requestBody, slug) {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '../../_lib/auth';
 import { getProviderAdapter } from '../../_lib/provider-factory';
 import { forwardRequestToProvider } from '../../_lib/forwarder';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 // Use the Node.js runtime for the native crypto module
 export const runtime = 'nodejs';
