@@ -1,19 +1,27 @@
-// File: app/dashboard/_components/CreateProjectForm.tsx
-'use client'; // This is a Client Component because it's interactive
+'use client'; // This directive marks the component as a Client Component, allowing it to be interactive.
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
+/**
+ * A client-side component for the new project creation form.
+ * It handles its own state and submits data to our API endpoint.
+ */
 export default function CreateProjectForm() {
   const [projectName, setProjectName] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter(); // Hook to refresh the page data after a successful creation.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage('');
+    setIsError(false);
 
+    // Call our backend API to create the project
     const response = await fetch('/api/projects/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -23,12 +31,15 @@ export default function CreateProjectForm() {
     const data = await response.json();
 
     if (response.ok) {
-      setMessage(`Project created successfully! Your new APIGuardian Key is: ${data.apiKey}`);
+      setMessage(`Project "${projectName}" created successfully!`);
+      setIsError(false);
       setProjectName('');
       setOpenaiKey('');
-      // In a real app, we'd use router.refresh() here, but for now this is fine.
+      // Refresh the server component data on the page to show the new project in the list
+      router.refresh(); 
     } else {
       setMessage(`Error: ${data.error}`);
+      setIsError(true);
     }
     setIsLoading(false);
   };
@@ -43,7 +54,7 @@ export default function CreateProjectForm() {
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
           required
-          style={{ padding: '0.5rem' }}
+          style={{ padding: '0.75rem', border: '1px solid #ccc', borderRadius: '4px' }}
         />
         <input
           type="password"
@@ -51,13 +62,17 @@ export default function CreateProjectForm() {
           value={openaiKey}
           onChange={(e) => setOpenaiKey(e.target.value)}
           required
-          style={{ padding: '0.5rem' }}
+          style={{ padding: '0.75rem', border: '1px solid #ccc', borderRadius: '4px' }}
         />
-        <button type="submit" disabled={isLoading} style={{ padding: '0.5rem' }}>
+        <button type="submit" disabled={isLoading} style={{ padding: '0.75rem', cursor: 'pointer', background: '#0070f3', color: 'white', border: 'none', borderRadius: '4px' }}>
           {isLoading ? 'Creating...' : 'Create Project'}
         </button>
       </form>
-      {message && <p style={{ marginTop: '1rem', color: message.startsWith('Error') ? 'red' : 'green' }}>{message}</p>}
+      {message && (
+        <p style={{ marginTop: '1rem', color: isError ? 'red' : 'green' }}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }
