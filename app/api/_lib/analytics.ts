@@ -1,18 +1,18 @@
-// File: app/api/_lib/analytics.ts
 import { createClient } from '@supabase/supabase-js';
 import { ProviderAdapter } from './providers/interface';
 import { calculateCost } from './cost-calculator';
 
-// We initialize the client here once. Since this module only runs on the server, it's safe.
 const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!
 );
 
+// --- THE FIX: Add userId to the interface ---
 interface AnalyticsData {
   response: Response;
   adapter: ProviderAdapter;
   projectId: string;
+  userId: string;
   latency: number;
 }
 
@@ -20,14 +20,13 @@ export async function processAnalyticsInBackground({
   response,
   adapter,
   projectId,
+  userId, // De-structure the new property
   latency,
 }: AnalyticsData) {
   try {
-    // We must clone the response to read its body safely in the background
     const responseClone = response.clone();
     const { model, promptTokens, completionTokens } = await adapter.parseResponse(responseClone);
 
-    // Don't log requests that had no token usage (e.g., input errors)
     if (promptTokens === 0 && completionTokens === 0) {
         return;
     }
@@ -36,8 +35,10 @@ export async function processAnalyticsInBackground({
       provider: adapter.id, model, promptTokens, completionTokens
     });
 
+    // --- THE FIX: Add user_id to the database insert ---
     const { error: logError } = await supabase.from('api_logs').insert({
       project_id: projectId,
+      user_id: userId, // Save the ID of the user who owns the project
       model: model,
       status_code: response.status,
       prompt_tokens: promptTokens,
@@ -52,6 +53,5 @@ export async function processAnalyticsInBackground({
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("Error in background analytics:", errorMessage);
-    // In a production system, we would send this failed log to a Dead Letter Queue (DLQ)
   }
 }

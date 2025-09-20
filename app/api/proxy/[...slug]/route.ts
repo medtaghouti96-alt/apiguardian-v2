@@ -1,25 +1,18 @@
+// File: app/api/proxy/[...slug]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-// Import all our _lib modules
 import { authenticateRequest } from '../../_lib/auth';
 import { getProviderAdapter } from '../../_lib/provider-factory';
 import { forwardRequestToProvider } from '../../_lib/forwarder';
-// We will use the analytics module in Sprint 3
-// import { processAnalyticsInBackground } from '../../_lib/analytics';
+import { processAnalyticsInBackground } from '../../_lib/analytics';
 
-// Use the Node.js runtime for the native crypto module
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+    const requestStartTime = Date.now();
     try {
-        // --- Step 1: Authentication & Decryption ---
-        // The authenticateRequest module now ALSO fetches the current spend.
+        // Step 1: Authentication, Decryption, and Spend Fetching
         const authResult = await authenticateRequest(req);
-
-        // --- TEMPORARY DEBUG LOG FOR SPRINT 4.2 VERIFICATION ---
-        // This will print the full result, including the new `currentSpend`, to your Vercel logs.
-        console.log("Auth Result with Spend:", JSON.stringify(authResult, null, 2));
-        // --- END OF TEMPORARY LOG ---
 
         if (!authResult.isValid) {
             return NextResponse.json({ error: authResult.errorMessage }, { status: authResult.status });
@@ -28,29 +21,40 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Authentication successful but critical data is missing." }, { status: 500 });
         }
         
-        // We now de-structure `currentSpend` from the result as well.
         const { project, decryptedKey, currentSpend } = authResult;
         
-        // The blocking logic will go here in the next step.
-        // For now, we are just verifying that we receive the `currentSpend`.
+        // --- STEP 2: THE BLOCKING LOGIC ---
+        // This is the "Circuit Breaker".
+        const budget = Number(project.monthly_budget);
+        if (budget > 0 && currentSpend >= budget) {
+            // If the budget is set (is greater than 0) and the current spend has
+            // met or exceeded it, we block the request.
+            console.log(`Project ${project.id} blocked. Spend: ${currentSpend}, Budget: ${budget}`);
+            return NextResponse.json({ error: "Monthly budget exceeded." }, { status: 429 }); // 429 Too Many Requests
+        }
+        // --- END OF BLOCKING LOGIC ---
         
-        // --- Step 2: Provider Selection ---
+        // If the request is not blocked, proceed as normal.
         const adapter = getProviderAdapter(req);
         if (!adapter) {
-            return NextResponse.json({ error: "Invalid AI provider specified in URL." }, { status: 400 });
+            return NextResponse.json({ error: "Invalid AI provider in URL." }, { status: 400 });
         }
 
-        // --- Step 3: Forward Request ---
         const upstreamResponse = await forwardRequestToProvider({
             request: req.clone(),
             decryptedKey: decryptedKey,
             adapter: adapter
         });
+        const requestEndTime = Date.now();
+
+        processAnalyticsInBackground({
+          response: upstreamResponse.clone(),
+          adapter,
+          projectId: project.id,
+          userId: project.user_id, // We'll need this for alerts
+          latency: requestEndTime - requestStartTime
+        });
         
-        // --- Step 4 (Future): Asynchronous Analytics will go here ---
-        // processAnalyticsInBackground({ ... });
-        
-        // --- Step 5: Stream Response Back to User ---
         return upstreamResponse;
 
     } catch (error) {
