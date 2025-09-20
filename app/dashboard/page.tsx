@@ -6,22 +6,14 @@ import { redirect } from 'next/navigation';
 import CreateProjectForm from './_components/CreateProjectForm';
 import LiveRequestLog from './_components/LiveRequestLog';
 import StatWidgets from './_components/StatWidgets';
+import ProjectSettings from './_components/ProjectSettings'; // <-- 1. IMPORT THE NEW COMPONENT
 
 /**
- * This is the main dashboard page, now with added debugging logs to diagnose
- * why the project list is not appearing.
+ * This is the main dashboard page for authenticated users.
  */
 export default async function DashboardPage() {
-  // --- START OF DEBUGGING BLOCK ---
-  console.log("--- Executing DashboardPage Server Component ---");
   const { userId } = await auth();
-  
-  // This is the most important log. It tells us which user is currently logged in.
-  console.log(`Clerk auth() returned userId: ${userId}`);
-  // --- END OF DEBUGGING BLOCK ---
-
   if (!userId) {
-    // If Clerk finds no user, redirect to the sign-in page.
     redirect('/sign-in');
   }
 
@@ -30,25 +22,15 @@ export default async function DashboardPage() {
     process.env.SUPABASE_SERVICE_KEY!
   );
 
-  // We are fetching projects where the 'user_id' column matches the ID from Clerk.
+  // --- 2. THE CHANGE: Fetch `monthly_budget` in addition to other fields ---
   const { data: projects, error } = await supabase
     .from('projects')
-    .select('id, name, apiguardian_api_key')
-    .eq('user_id', userId) 
+    .select('id, name, apiguardian_api_key, monthly_budget')
+    .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
-  // --- START OF DEBUGGING BLOCK ---
-  // This log tells us the result of our database query.
-  // If this is an empty array [], it means no projects were found for the userId above.
-  console.log(`Supabase query for projects returned: ${JSON.stringify(projects, null, 2)}`);
-  
   if (error) {
-    // If the query itself failed, we log the error message.
-    console.error("Supabase query error:", error.message);
-  }
-  // --- END OF DEBUGGING BLOCK ---
-
-  if (error) {
+    console.error("Error fetching projects:", error);
     return <div>Error loading your projects. Please refresh the page.</div>;
   }
   
@@ -82,6 +64,11 @@ export default async function DashboardPage() {
                   <code>{proxyUrl}</code>
                 </pre>
               </div>
+
+              {/* --- 3. THE CHANGE: Render the ProjectSettings component for each project --- */}
+              {/* We pass the project's ID and its current budget as props */}
+              <ProjectSettings projectId={project.id} currentBudget={project.monthly_budget} />
+
             </div>
           ))}
         </div>
