@@ -5,13 +5,15 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+// The function signature is now corrected to the standard Next.js App Router format.
 export async function PATCH(
   req: Request,
-  { params }: { params: { projectId: string } }
+  context: { params: { projectId: string } }
 ) {
   try {
     const { userId } = await auth();
-    const { projectId } = params;
+    // We now access the projectId from the 'context' object.
+    const { projectId } = context.params;
     const { budget } = await req.json();
 
     if (!userId) {
@@ -47,6 +49,7 @@ export async function PATCH(
     return NextResponse.json(data);
 
   } catch (error) {
+    console.error("Error in PATCH handler:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
