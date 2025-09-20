@@ -1,19 +1,24 @@
 // File: app/api/projects/[projectId]/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server'; // <-- Import NextRequest
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-// The function signature is now corrected to the standard Next.js App Router format.
+// We will use the NextRequest type for the first argument, and no type for the second.
 export async function PATCH(
-  req: Request,
-  context: { params: { projectId: string } }
+  req: NextRequest
 ) {
   try {
     const { userId } = await auth();
-    // We now access the projectId from the 'context' object.
-    const { projectId } = context.params;
+    
+    // --- THE FIX ---
+    // Instead of using the context object, we will parse the projectId
+    // directly from the URL pathname. This is a more robust method.
+    const pathname = req.nextUrl.pathname; // e.g., "/api/projects/xxxxxxxx-xxxx..."
+    const projectId = pathname.split('/').pop(); // Gets the last part of the URL
+    // --- END OF FIX ---
+    
     const { budget } = await req.json();
 
     if (!userId) {
@@ -31,13 +36,11 @@ export async function PATCH(
       process.env.SUPABASE_SERVICE_KEY!
     );
 
-    // Update the project's budget, but only if the project belongs to the logged-in user.
-    // This is a critical security check.
     const { data, error } = await supabase
       .from('projects')
       .update({ monthly_budget: budget })
       .eq('id', projectId)
-      .eq('user_id', userId) // <-- SECURITY CHECK
+      .eq('user_id', userId)
       .select()
       .single();
 
