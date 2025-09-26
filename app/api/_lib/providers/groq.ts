@@ -1,18 +1,14 @@
-// File: app/api/_lib/providers/groq.ts
-
 import { ProviderAdapter } from './interface';
 
-// This is the adapter for the Groq API.
 export const GroqAdapter: ProviderAdapter = {
-  // The unique ID for this provider
   id: 'groq',
-
-  // This function transforms a generic request into the format Groq expects.
   transformRequest(decryptedApiKey: string, requestBody: Record<string, unknown>, slug: string[]) {
+    // The incoming slug will be ["v1", "chat", "completions"]
+    // We want to join them to form "v1/chat/completions"
     const groqPath = slug.join('/');
     
-    // The URL points to Groq's OpenAI-compatible endpoint.
-    const url = `https://api.groq.com/openai/v1/${groqPath}`;
+    // This is the correct final URL structure for Groq's OpenAI-compatible endpoint
+    const url = `https://api.groq.com/openai/${groqPath}`;
     
     return {
       url,
@@ -23,17 +19,12 @@ export const GroqAdapter: ProviderAdapter = {
       body: JSON.stringify(requestBody)
     };
   },
-
-  // This function parses the response from Groq to find the usage data.
-  // Based on our cURL test, we know this structure is correct.
   async parseResponse(response: Response) {
     const responseData = await response.json();
-    
     if (responseData.error) {
       console.error("Error from Groq API:", responseData.error.message);
       return { model: responseData.model || 'unknown-groq-error', promptTokens: 0, completionTokens: 0 };
     }
-
     return {
       model: responseData.model,
       promptTokens: responseData.usage?.prompt_tokens || 0,

@@ -1,26 +1,23 @@
 // File: app/api/_lib/provider-factory.ts
-
-// NO import from 'next/server' is needed here.
 import { OpenAIAdapter } from './providers/openai';
 import { GroqAdapter } from './providers/groq';
 import { ProviderAdapter } from './providers/interface';
 
-/**
- * Determines which provider adapter to use based on the incoming request URL.
- * @param req - The incoming Request object (this is a global type).
- * @returns The appropriate ProviderAdapter or null if none is found.
- */
-export function getProviderAdapter(req: Request): ProviderAdapter | null {
+export function getProviderAdapter(req: Request): { adapter: ProviderAdapter | null, slug: string[] } {
   const url = new URL(req.url);
-  const providerId = url.pathname.split('/api/proxy/')[1]?.split('/')[0];
+  const pathParts = url.pathname.split('/api/proxy/')[1]?.split('/') || [];
+  
+  const providerId = pathParts[0];
+  const slug = pathParts.slice(1); // --- THE FIX: The slug is everything AFTER the provider ID
+
+  let adapter: ProviderAdapter | null = null;
 
   if (providerId === 'openai') {
-    return OpenAIAdapter;
+    adapter = OpenAIAdapter;
   }
-  
   if (providerId === 'groq') {
-    return GroqAdapter;
+    adapter = GroqAdapter;
   }
   
-  return null;
+  return { adapter, slug };
 }
