@@ -1,4 +1,3 @@
-// File: app/api/_lib/analytics.ts
 import { createClient } from '@supabase/supabase-js';
 import { ProviderAdapter } from './providers/interface';
 import { calculateCost } from './cost-calculator';
@@ -15,11 +14,7 @@ interface AnalyticsData {
 }
 
 export async function processAnalyticsInBackground({
-  response,
-  adapter,
-  projectId,
-  userId,
-  latency,
+  response, adapter, projectId, userId, latency,
 }: AnalyticsData) {
   try {
     const responseClone = response.clone();
@@ -47,8 +42,8 @@ export async function processAnalyticsInBackground({
       return;
     }
 
-    // --- THE CHANGE: Call the new notifier function correctly ---
-    // We do not await this, it runs in the background.
+    // Call the notifier, passing only the project ID.
+    // The notifier is responsible for calculating the accurate spend itself.
     checkBudgetAndSendNotification(projectId);
 
   } catch (err) {
