@@ -5,26 +5,37 @@ import { useState } from 'react';
 interface ProjectSettingsProps {
   projectId: string;
   currentBudget: number;
+  currentWebhookUrl: string | null; // <-- ADDED: a prop for the webhook
 }
 
-export default function ProjectSettings({ projectId, currentBudget }: ProjectSettingsProps) {
+export default function ProjectSettings({ projectId, currentBudget, currentWebhookUrl }: ProjectSettingsProps) {
   const [budget, setBudget] = useState(currentBudget);
+  const [webhookUrl, setWebhookUrl] = useState(currentWebhookUrl || ''); // <-- ADDED: state for the webhook
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSave = async () => {
     setIsLoading(true);
     setMessage('');
+    setIsError(false);
+    
     const response = await fetch(`/api/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ budget: Number(budget) }),
+      // Send both budget and webhookUrl in the payload
+      body: JSON.stringify({ 
+        budget: Number(budget),
+        webhookUrl: webhookUrl 
+      }),
     });
 
     if (response.ok) {
-      setMessage('Budget saved successfully!');
+      setMessage('Settings saved successfully!');
+      setIsError(false);
     } else {
-      setMessage('Error: Could not save budget.');
+      setMessage('Error: Could not save settings.');
+      setIsError(true);
     }
     setIsLoading(false);
   };
@@ -32,8 +43,9 @@ export default function ProjectSettings({ projectId, currentBudget }: ProjectSet
   return (
     <div style={{ marginTop: '1rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
       <h4>Settings</h4>
-      <label htmlFor={`budget-${projectId}`}>Monthly Budget (USD)</label>
-      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+      
+      <div style={{ marginBottom: '1rem' }}>
+        <label htmlFor={`budget-${projectId}`} style={{ display: 'block', marginBottom: '0.25rem' }}>Monthly Budget (USD)</label>
         <input
           id={`budget-${projectId}`}
           type="number"
@@ -41,13 +53,29 @@ export default function ProjectSettings({ projectId, currentBudget }: ProjectSet
           onChange={(e) => setBudget(Number(e.target.value))}
           min="0"
           step="1"
-          style={{ padding: '0.5rem' }}
+          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
-        <button onClick={handleSave} disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save'}
-        </button>
       </div>
-      {message && <p style={{ fontSize: '0.9em', color: 'green' }}>{message}</p>}
+
+      {/* --- NEW WEBHOOK INPUT FIELD --- */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label htmlFor={`webhook-${projectId}`} style={{ display: 'block', marginBottom: '0.25rem' }}>Webhook URL for Alerts (Optional)</label>
+        <input
+          id={`webhook-${projectId}`}
+          type="url"
+          placeholder="https://hooks.slack.com/..."
+          value={webhookUrl}
+          onChange={(e) => setWebhookUrl(e.target.value)}
+          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
+        />
+      </div>
+      {/* --- END OF NEW FIELD --- */}
+
+      <button onClick={handleSave} disabled={isLoading} style={{ padding: '0.75rem', cursor: 'pointer' }}>
+        {isLoading ? 'Saving...' : 'Save Settings'}
+      </button>
+      
+      {message && <p style={{ fontSize: '0.9em', color: isError ? 'red' : 'green', marginTop: '1rem' }}>{message}</p>}
     </div>
   );
 }
