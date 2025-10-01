@@ -1,25 +1,18 @@
 // File: app/api/projects/[projectId]/route.ts
-import { NextResponse, NextRequest } from 'next/server'; // <-- Import NextRequest
+import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-// We will use the NextRequest type for the first argument, and no type for the second.
-export async function PATCH(
-  req: NextRequest
-) {
+export async function PATCH(req: NextRequest) {
   try {
     const { userId } = await auth();
+    const pathname = req.nextUrl.pathname;
+    const projectId = pathname.split('/').pop();
     
-    // --- THE FIX ---
-    // Instead of using the context object, we will parse the projectId
-    // directly from the URL pathname. This is a more robust method.
-    const pathname = req.nextUrl.pathname; // e.g., "/api/projects/xxxxxxxx-xxxx..."
-    const projectId = pathname.split('/').pop(); // Gets the last part of the URL
-    // --- END OF FIX ---
-    
-    const { budget } = await req.json();
+    // 1. Get both budget and webhookUrl from the request body
+    const { budget, webhookUrl } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -36,17 +29,21 @@ export async function PATCH(
       process.env.SUPABASE_SERVICE_KEY!
     );
 
+    // 2. Add webhook_url to the update statement
     const { data, error } = await supabase
       .from('projects')
-      .update({ monthly_budget: budget })
+      .update({ 
+        monthly_budget: budget,
+        webhook_url: webhookUrl 
+      })
       .eq('id', projectId)
-      .eq('user_id', userId)
+      .eq('user_id', userId) // Security check
       .select()
       .single();
 
     if (error) {
-      console.error("Error updating budget:", error);
-      return NextResponse.json({ error: "Could not update project budget." }, { status: 500 });
+      console.error("Error updating project settings:", error);
+      return NextResponse.json({ error: "Could not update project settings." }, { status: 500 });
     }
     
     return NextResponse.json(data);
