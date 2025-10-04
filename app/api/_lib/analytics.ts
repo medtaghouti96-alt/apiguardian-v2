@@ -17,10 +17,6 @@ interface AnalyticsData {
   latency: number;
 }
 
-/**
- * Runs in the background after a request is completed.
- * Its only jobs are to log the request details and then trigger the notifier.
- */
 export async function processAnalyticsInBackground({
   response,
   adapter,
@@ -28,11 +24,14 @@ export async function processAnalyticsInBackground({
   userId,
   latency,
 }: AnalyticsData) {
+  console.log(`[Analytics] START: Processing analytics for project ${projectId}`);
   try {
     const responseClone = response.clone();
     const { model, promptTokens, completionTokens } = await adapter.parseResponse(responseClone);
+    console.log(`[Analytics] Parsed response. Model: ${model}, Tokens: ${promptTokens}/${completionTokens}`);
 
     if (promptTokens === 0 && completionTokens === 0) {
+        console.log("[Analytics] END: No token usage detected. Exiting.");
         return;
     }
 
@@ -42,9 +41,9 @@ export async function processAnalyticsInBackground({
       promptTokens,
       completionTokens
     });
+    console.log(`[Analytics] Calculated cost: $${cost}`);
 
-    // 1. Insert the detailed log for the request.
-    const { error: logError } = await supabase.from('api_logs').insert({
+    const logPayload = {
       project_id: projectId,
       user_id: userId,
       model: model,
@@ -53,20 +52,29 @@ export async function processAnalyticsInBackground({
       completion_tokens: completionTokens,
       cost: cost,
       latency_ms: latency,
-    });
+    };
+
+    console.log("[Analytics] Attempting to insert log into Supabase...");
+    const { error: logError } = await supabase.from('api_logs').insert(logPayload);
 
     if (logError) {
-      console.error("Error saving to api_logs:", logError.message);
-      return; // Stop if logging fails.
+      console.error(`[Analytics] FAILED to insert log for project ${projectId}.`);
+      console.error(`[Analytics] Supabase Error Code: ${logError.code}`);
+      console.error(`[Analytics] Supabase Error Message: ${logError.message}`);
+      console.error(`[Analytics] Payload sent to Supabase: ${JSON.stringify(logPayload)}`);
+      console.log("[Analytics] END: Exiting due to database error.");
+      return;
     }
 
-    // 2. Trigger the notification system.
-    //    We do not await this. It runs completely in the background.
-    //    We only pass the projectId, as the notifier is responsible for all calculations.
+    console.log(`[Analytics] Successfully inserted log. Now calling notifier for project ${projectId}.`);
+    
+    // Call the notifier (we are not awaiting it)
     checkBudgetAndSendNotification(projectId);
+
+    console.log("[Analytics] END: Notifier has been triggered.");
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error("Critical error in background analytics:", errorMessage);
+    console.error("[Analytics] CRITICAL: An unexpected error occurred in the try/catch block:", errorMessage);
   }
 }
