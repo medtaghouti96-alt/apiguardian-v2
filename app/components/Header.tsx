@@ -8,14 +8,19 @@ export default function Header() {
       <Link href="/" style={{ fontWeight: 'bold', textDecoration: 'none', color: 'inherit', fontSize: '1.2rem' }}>
         APIGuardian
       </Link>
-      <nav>
+      <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        {/* --- ADD THIS NEW LINK --- */}
+        <Link href="/pricing" style={{ textDecoration: 'none', color: 'inherit' }}>
+          Pricing
+        </Link>
+        {/* ------------------------- */}
         <SignedOut>
           <SignInButton mode="modal">
             <button style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}>Sign In</button>
           </SignInButton>
         </SignedOut>
         <SignedIn>
-          <Link href="/dashboard" style={{ marginRight: '1rem', textDecoration: 'none', color: 'inherit' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none', color: 'inherit' }}>
             Dashboard
           </Link>
           <UserButton afterSignOutUrl="/" />
