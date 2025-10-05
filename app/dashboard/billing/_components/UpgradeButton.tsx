@@ -13,7 +13,7 @@ export default function UpgradeButton() {
       headers: { 'Content-Type': 'application/json' },
       // We can hard-code the Startup plan's Price ID for now
       // In a real app, you would have buttons for each plan
-      body: JSON.stringify({ priceId: 'YOUR_STRIPE_STARTUP_PLAN_PRICE_ID' }),
+      body: JSON.stringify({ priceId: 'prod_TBBXxARfcv3n2l' }),
     });
     
     const { url } = await response.json();
