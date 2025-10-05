@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    return <div>Error loading your projects. Please refresh the page.</div>;
+    return <div>Error loading your projects.. Please refresh the page.</div>;
   }
   
   const proxyUrl = "https://apiguardian-v2.vercel.app/api/proxy/openai/v1";
