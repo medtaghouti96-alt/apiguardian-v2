@@ -24,7 +24,7 @@ export default function HomePage() {
 
       {/* --- Problem/Solution Section --- */}
       <section style={{ ...sectionStyle, background: '#fafafa', padding: '2rem', borderRadius: '8px' }}>
-        <h2 style={{ fontSize: '2rem' }}>From "Oh No" to "No Problem"</h2>
+        <h2 style={{ fontSize: '2rem' }}>From &quot;Oh No&quot; to &quot;No Problem&quot;</h2>
         <p style={pStyle}>
           A simple bug or a viral post can turn your affordable AI feature into a five-figure nightmare.
           APIGuardian acts as a circuit breaker, blocking requests the moment you hit your budget,
