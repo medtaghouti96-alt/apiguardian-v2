@@ -2,35 +2,30 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-// Define which routes are ALWAYS public (accessible to everyone)
+// Define which routes do not require a signed-in user session
 const isPublicRoute = createRouteMatcher([
   '/', 
   '/pricing',
   '/sign-in(.*)',
   '/sign-up(.*)',
-  '/api/webhooks/clerk',
+  '/api/(.*)' // <-- THE FIX: Make all API routes public
 ]);
 
-// Define the admin route
+// Define the admin route separately for its special check
 const isAdminRoute = createRouteMatcher(['/admin(.*)']);
 
 export default clerkMiddleware(async (auth, request) => {
-  // --- This is the new, simplified logic ---
-
-  // Get the userId. We will need it for all checks.
   const { userId } = await auth();
   
-  // 1. Handle Admin Route Security
+  // Handle Admin Route Security
   if (isAdminRoute(request)) {
-    // If the user is not the admin, boot them to the homepage.
-    // This also handles the case where userId is null (logged out).
     if (userId !== process.env.ADMIN_USER_ID) {
       const homeUrl = new URL('/', request.url);
       return NextResponse.redirect(homeUrl);
     }
   }
   
-  // 2. Handle All Other Protected Routes
+  // Handle All Other Protected Routes (e.g., /dashboard)
   // If the route is NOT public AND the user is NOT logged in...
   if (!isPublicRoute(request) && !isAdminRoute(request) && !userId) {
     // ...redirect them to the sign-in page.
@@ -39,7 +34,7 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(signInUrl);
   }
 
-  // If none of the above conditions are met, allow the request to proceed.
+  // If all checks pass, allow the request to proceed.
   return NextResponse.next();
 });
 
