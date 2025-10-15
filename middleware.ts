@@ -10,6 +10,7 @@ export const config = {
     // Match all routes except for static assets
     '/((?!.*\\..*|_next).*)', 
     '/', 
-    '/(api|trpc)(.*)'
+    '/(api|trpc)(.*)',
+    '/admin(.*)'
   ],
 };
