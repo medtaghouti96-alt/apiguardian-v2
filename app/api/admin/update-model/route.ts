@@ -17,7 +17,6 @@ export async function PATCH(req: Request) {
     }
 
     const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
-
     const { data, error } = await supabase
       .from('models')
       .update({
@@ -36,8 +35,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ message: `Model ${data.model_name} updated successfully.` });
 
   } catch (error) {
+    // --- APPLYING THE SAME TYPE-SAFE CATCH BLOCK HERE ---
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error in admin update API:", errorMessage);
+    console.error("Admin Update Model Error:", errorMessage);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
