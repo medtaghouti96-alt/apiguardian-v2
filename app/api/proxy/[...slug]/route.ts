@@ -1,10 +1,9 @@
-// File: app/api/proxy/[...slug]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '../../_lib/auth';
 import { getProviderAdapter } from '../../_lib/provider-factory';
 import { forwardRequestToProvider } from '../../_lib/forwarder';
 import { processAnalyticsInBackground } from '../../_lib/analytics';
-import { checkBudgetAndSendNotification } from '../../_lib/notifier'; // <-- THE FIX
+import { checkBudgetAndSendNotification } from '../../_lib/notifier';
 
 export const runtime = 'nodejs';
 
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
         
         const { adapter, slug } = await getProviderAdapter(req);
         if (!adapter) {
-            return NextResponse.json({ error: "Invalid or unsupported provider in URL." }, { status: 400 });
+            return NextResponse.json({ error: "Invalid provider in URL." }, { status: 400 });
         }
 
         const upstreamResponse = await forwardRequestToProvider({
@@ -39,11 +38,16 @@ export async function POST(req: NextRequest) {
         });
         const requestEndTime = Date.now();
 
+        // --- THE CHANGE IS HERE ---
+        // Read the custom header from the original request
+        const endUserId = req.headers.get('X-APIGuardian-User-ID');
+
         processAnalyticsInBackground({
           response: upstreamResponse.clone(),
           adapter,
           projectId: project.id,
           userId: project.user_id,
+          endUserId: endUserId, // Pass the ID to the analytics function
           latency: requestEndTime - requestStartTime
         });
         
@@ -54,8 +58,4 @@ export async function POST(req: NextRequest) {
         const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
-}
-
-export async function GET(req: NextRequest) {
-    return NextResponse.json({ error: 'Method Not Allowed' }, { status: 405, headers: { 'Allow': 'POST' } });
 }
