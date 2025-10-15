@@ -1,23 +1,34 @@
 // File: app/api/_lib/provider-factory.ts
-import { OpenAIAdapter } from './providers/openai';
-import { GroqAdapter } from './providers/groq';
+
+// NO import from 'next/server' is needed.
+import { getProviderConfig } from './config-loader';
+import { DynamicAdapter } from './providers/DynamicAdapter';
 import { ProviderAdapter } from './providers/interface';
 
-export function getProviderAdapter(req: Request): { adapter: ProviderAdapter | null, slug: string[] } {
+export interface ProviderFactoryResult {
+  adapter: ProviderAdapter | null;
+  slug: string[];
+}
+
+export async function getProviderAdapter(req: Request): Promise<ProviderFactoryResult> {
   const url = new URL(req.url);
   const pathParts = url.pathname.split('/api/proxy/')[1]?.split('/') || [];
-  
   const providerId = pathParts[0];
-  const slug = pathParts.slice(1); // --- THE FIX: The slug is everything AFTER the provider ID
+  const slug = pathParts.slice(1);
 
-  let adapter: ProviderAdapter | null = null;
+  if (!providerId) {
+    return { adapter: null, slug };
+  }
 
-  if (providerId === 'openai') {
-    adapter = OpenAIAdapter;
+  // Fetch the provider's configuration from the database (via cache)
+  const providerConfig = await getProviderConfig(providerId);
+
+  if (!providerConfig) {
+    return { adapter: null, slug };
   }
-  if (providerId === 'groq') {
-    adapter = GroqAdapter;
-  }
+
+  // Create a new instance of our DynamicAdapter, configured for this specific provider
+  const adapter = new DynamicAdapter(providerConfig);
   
   return { adapter, slug };
 }
