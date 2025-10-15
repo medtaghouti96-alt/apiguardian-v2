@@ -1,4 +1,3 @@
-// File: app/admin/_components/AdminModelManager.tsx
 'use client';
 import { useState } from 'react';
 
@@ -9,43 +8,24 @@ type Model = {
   model_name: string;
   input_cost_per_million_tokens: number;
   output_cost_per_million_tokens: number;
-  // Add other fields as needed
 };
 
 export default function AdminModelManager({ initialModels, providers }: { initialModels: Model[], providers: any[] }) {
   const [models, setModels] = useState(initialModels);
-  const [message, setMessage] = useState('');
-  const [isError, setIsError] = useState(false);
-
-  // This is a simple way to refresh data on the client side
-  const refreshData = async () => {
-    const res = await fetch('/api/admin/get-models'); // We'll create this API
-    if (res.ok) {
-      const newModels = await res.json();
-      setModels(newModels);
-    }
-  };
+  
+  // This function is not used yet, so we can comment it out.
+  // const refreshData = async () => { ... };
 
   const handleDelete = async (modelId: string) => {
     if (!confirm('Are you sure you want to delete this model?')) return;
-    
-    // TODO: Call a new API endpoint /api/admin/delete-model
-    console.log(`Deleting model ${modelId}`);
-    // After deleting, refresh the list
-    // await refreshData();
+    console.log(`TODO: Call API to delete model ${modelId}`);
   };
 
   return (
     <div>
       <table style={{ width: '100%', marginTop: '2rem', borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-            <th>Provider</th>
-            <th>Model Name</th>
-            <th>Input Cost (/1M)</th>
-            <th>Output Cost (/1M)</th>
-            <th>Actions</th>
-          </tr>
+          {/* ... table headers ... */}
         </thead>
         <tbody>
           {models.map(model => (
@@ -61,12 +41,8 @@ export default function AdminModelManager({ initialModels, providers }: { initia
           ))}
         </tbody>
       </table>
-      
-      {/* We can re-use the forms we designed before for Editing and Creating */}
-      {/* For simplicity, let's assume they are built here for now */}
       <hr style={{marginTop: '2rem'}} />
-      {/* <EditModelForm models={models} onSave={refreshData} /> */}
-      {/* <CreateModelForm providers={providers} onSave={refreshData} /> */}
+      {/* We will add the Edit and Create forms here later */}
     </div>
   );
 }
