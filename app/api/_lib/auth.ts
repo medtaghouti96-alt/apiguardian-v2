@@ -35,7 +35,7 @@ export async function authenticateRequest(request: Request) {
   }
 
   // --- 3. TIER-BASED PER-USER BUDGET CHECK (Smart Blocker v2) ---
-  const endUserId = request.headers.get('X-APIGuardian-User-ID');
+  const endUserId = request.headers.get('x-apiguardian-user-id');
   
   if (endUserId) {
       // Fetch all rules for this project in one efficient query

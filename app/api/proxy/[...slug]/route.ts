@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
         // --- THE CHANGE IS HERE ---
         // Read the custom header from the original request
-        const endUserId = req.headers.get('X-APIGuardian-User-ID');
+        const endUserId = req.headers.get('x-apiguardian-user-id');
 
         processAnalyticsInBackground({
           response: upstreamResponse.clone(),
