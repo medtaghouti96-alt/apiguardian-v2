@@ -1,16 +1,17 @@
-// File: app/dashboard/_components/ProjectSettings.tsx
 'use client';
 import { useState } from 'react';
 
 interface ProjectSettingsProps {
   projectId: string;
-  currentBudget: number;
-  currentWebhookUrl: string | null; // <-- ADDED: a prop for the webhook
+  currentBudget: number | null;
+  currentWebhookUrl: string | null;
+  currentPerUserBudget: number | null;
 }
 
-export default function ProjectSettings({ projectId, currentBudget, currentWebhookUrl }: ProjectSettingsProps) {
-  const [budget, setBudget] = useState(currentBudget);
-  const [webhookUrl, setWebhookUrl] = useState(currentWebhookUrl || ''); // <-- ADDED: state for the webhook
+export default function ProjectSettings({ projectId, currentBudget, currentWebhookUrl, currentPerUserBudget }: ProjectSettingsProps) {
+  const [budget, setBudget] = useState(currentBudget || 0);
+  const [webhookUrl, setWebhookUrl] = useState(currentWebhookUrl || '');
+  const [perUserBudget, setPerUserBudget] = useState(currentPerUserBudget || 0);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,10 +24,10 @@ export default function ProjectSettings({ projectId, currentBudget, currentWebho
     const response = await fetch(`/api/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      // Send both budget and webhookUrl in the payload
       body: JSON.stringify({ 
         budget: Number(budget),
-        webhookUrl: webhookUrl 
+        webhookUrl: webhookUrl,
+        perUserBudget: Number(perUserBudget)
       }),
     });
 
@@ -45,31 +46,31 @@ export default function ProjectSettings({ projectId, currentBudget, currentWebho
       <h4>Settings</h4>
       
       <div style={{ marginBottom: '1rem' }}>
-        <label htmlFor={`budget-${projectId}`} style={{ display: 'block', marginBottom: '0.25rem' }}>Monthly Budget (USD)</label>
+        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Global Monthly Budget (USD)</label>
         <input
-          id={`budget-${projectId}`}
-          type="number"
-          value={budget}
-          onChange={(e) => setBudget(Number(e.target.value))}
-          min="0"
-          step="1"
-          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
+          type="number" value={budget} onChange={(e) => setBudget(Number(e.target.value))}
+          min="0" step="1" style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
       </div>
 
-      {/* --- NEW WEBHOOK INPUT FIELD --- */}
       <div style={{ marginBottom: '1rem' }}>
-        <label htmlFor={`webhook-${projectId}`} style={{ display: 'block', marginBottom: '0.25rem' }}>Webhook URL for Alerts (Optional)</label>
+        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Per-User Monthly Budget (USD)</label>
         <input
-          id={`webhook-${projectId}`}
-          type="url"
-          placeholder="https://hooks.slack.com/..."
-          value={webhookUrl}
-          onChange={(e) => setWebhookUrl(e.target.value)}
+          type="number" value={perUserBudget} onChange={(e) => setPerUserBudget(Number(e.target.value))}
+          min="0" step="0.01" placeholder="e.g., 5.00"
+          style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
+        />
+        <small style={{color: '#666'}}>Set to 0 or leave blank to disable. Blocks any individual user who exceeds this spend.</small>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Webhook URL for Alerts (Optional)</label>
+        <input
+          type="url" placeholder="https://hooks.slack.com/..."
+          value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)}
           style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
         />
       </div>
-      {/* --- END OF NEW FIELD --- */}
 
       <button onClick={handleSave} disabled={isLoading} style={{ padding: '0.75rem', cursor: 'pointer' }}>
         {isLoading ? 'Saving...' : 'Save Settings'}

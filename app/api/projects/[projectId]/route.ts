@@ -1,4 +1,3 @@
-// File: app/api/projects/[projectId]/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
@@ -11,8 +10,7 @@ export async function PATCH(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
     const projectId = pathname.split('/').pop();
     
-    // 1. Get both budget and webhookUrl from the request body
-    const { budget, webhookUrl } = await req.json();
+    const { budget, webhookUrl, perUserBudget } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,21 +21,21 @@ export async function PATCH(req: NextRequest) {
     if (typeof budget !== 'number' || budget < 0) {
         return NextResponse.json({ error: "Invalid budget amount." }, { status: 400 });
     }
+    if (typeof perUserBudget !== 'number' || perUserBudget < 0) {
+        return NextResponse.json({ error: "Invalid per-user budget amount." }, { status: 400 });
+    }
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 
-    // 2. Add webhook_url to the update statement
     const { data, error } = await supabase
       .from('projects')
       .update({ 
         monthly_budget: budget,
-        webhook_url: webhookUrl 
+        webhook_url: webhookUrl,
+        per_user_budget: perUserBudget
       })
       .eq('id', projectId)
-      .eq('user_id', userId) // Security check
+      .eq('user_id', userId)
       .select()
       .single();
 
