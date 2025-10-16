@@ -8,6 +8,17 @@ import { checkBudgetAndSendNotification } from '../../_lib/notifier';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
+    // --- START OF NEW DEBUGGING BLOCK ---
+    // This will log every incoming header to help us find our custom one.
+    console.log("--- RECEIVED REQUEST HEADERS ---");
+    const headersObject: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+        headersObject[key] = value;
+    });
+    console.log(JSON.stringify(headersObject, null, 2));
+    console.log("--- END OF HEADERS ---");
+    // --- END OF NEW DEBUGGING BLOCK ---
+
     const requestStartTime = Date.now();
     try {
         const authResult = await authenticateRequest(req);
@@ -27,7 +38,7 @@ export async function POST(req: NextRequest) {
         
         const { adapter, slug } = await getProviderAdapter(req);
         if (!adapter) {
-            return NextResponse.json({ error: "Invalid provider in URL." }, { status: 400 });
+            return NextResponse.json({ error: "Invalid or unsupported provider in URL." }, { status: 400 });
         }
 
         const upstreamResponse = await forwardRequestToProvider({
@@ -38,8 +49,8 @@ export async function POST(req: NextRequest) {
         });
         const requestEndTime = Date.now();
 
-        // --- THE CHANGE IS HERE ---
-        // Read the custom header from the original request
+        // Read the custom header from the original request.
+        // We will try the lowercase version as our primary theory.
         const endUserId = req.headers.get('x-apiguardian-user-id');
 
         processAnalyticsInBackground({
@@ -47,7 +58,7 @@ export async function POST(req: NextRequest) {
           adapter,
           projectId: project.id,
           userId: project.user_id,
-          endUserId: endUserId, // Pass the ID to the analytics function
+          endUserId: endUserId, // Pass the ID (or null) to the analytics function
           latency: requestEndTime - requestStartTime
         });
         
@@ -58,4 +69,8 @@ export async function POST(req: NextRequest) {
         const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
+}
+
+export async function GET(req: NextRequest) {
+    return NextResponse.json({ error: 'Method Not Allowed' }, { status: 405, headers: { 'Allow': 'POST' } });
 }
