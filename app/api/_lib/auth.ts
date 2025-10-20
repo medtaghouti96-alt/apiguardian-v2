@@ -3,9 +3,27 @@ import { decryptSecret } from './encryption';
 import { redis } from './redis';
 import { fillSpendCacheForProject } from './cache-filler';
 
+/**
+ * This is a temporary debug version of authenticateRequest.
+ * It adds a console.log at the beginning to "echo" the incoming Authorization
+ * header to the Vercel logs, helping us diagnose why the key might not be found.
+ */
 export async function authenticateRequest(request: Request) {
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
+  // --- START OF DEBUGGING "ECHO" LOG ---
+  const authHeaderForDebug = request.headers.get('Authorization');
+  let agKeyForDebug = null;
+  if (authHeaderForDebug && authHeaderForDebug.startsWith('Bearer ag-')) {
+    agKeyForDebug = authHeaderForDebug.split(' ')[1];
+  }
+  console.log(`DEBUG_ECHO: Received Auth Header=[${authHeaderForDebug || 'NULL'}], Parsed Key=[${agKeyForDebug || 'NULL'}]`);
+  // --- END OF DEBUGGING "ECHO" LOG ---
 
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  );
+
+  // The rest of the function is our normal, type-safe V2 logic.
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ag-')) {
     return { isValid: false, status: 401, errorMessage: "Missing or invalid APIGuardian API Key." };
@@ -22,7 +40,6 @@ export async function authenticateRequest(request: Request) {
     return { isValid: false, status: 401, errorMessage: "Provider API Key is not configured for this project." };
   }
 
-  // --- V2 Per-User Blocker ---
   const perUserBudget = Number(project.per_user_budget);
   const endUserId = request.headers.get('x-apiguardian-user-id');
   if (perUserBudget > 0 && endUserId) {
@@ -35,7 +52,6 @@ export async function authenticateRequest(request: Request) {
     }
   }
 
-  // --- V2 Global Blocker (Cached SUM) ---
   let currentSpend = 0;
   const budget = Number(project.monthly_budget);
   if (budget > 0) {
@@ -49,7 +65,7 @@ export async function authenticateRequest(request: Request) {
       currentSpend = 0; 
     }
   }
-
+  
   const masterKey = process.env.ENCRYPTION_KEY;
   if (!masterKey) {
     return { isValid: false, status: 500, errorMessage: "Internal Server Configuration Error" };
