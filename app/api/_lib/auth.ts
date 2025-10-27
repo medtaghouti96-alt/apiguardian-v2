@@ -1,42 +1,44 @@
-// File: app/api/_lib/auth.ts (TEMPORARY "Read-Back" DEBUG VERSION)
+// File: app/api/_lib/auth.ts (FINAL DEBUG VERSION)
 import { createClient } from '@supabase/supabase-js';
+// ... other imports
 
 export async function authenticateRequest(request: Request) {
   const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 
-  // 1. Get the key the user SENT in the header
   const authHeader = request.headers.get('Authorization');
-  const sentKey = authHeader ? authHeader.split(' ')[1] : null;
-
-  // 2. Fetch the project by its NAME to get the key that is STORED in the database
-  const { data: project, error: projectError } = await supabase
-    .from('projects')
-    .select('apiguardian_api_key')
-    .eq('name', 'hama') // We are finding the project named "hama"
-    .single();
-    
-  if (projectError || !project) {
-      return { isValid: false, status: 404, errorMessage: `DEBUG: Could not find project with name 'hama'.` };
+  if (!authHeader || !authHeader.startsWith('Bearer ag-')) {
+    return { isValid: false, status: 401, /*...*/ };
   }
+  const agKey = authHeader.split(' ')[1];
+
+  const { data: project, error: projectError } = await supabase.from('projects')
+    .select('id, user_id, apiguardian_api_key, openai_api_key_encrypted, monthly_budget, per_user_budget') // Select the key
+    .eq('apiguardian_api_key', agKey)
+    .single();
+
+  // --- THIS IS THE NEW, CRITICAL DEBUG BLOCK ---
+  if (projectError || !project) {
+    // We will now log what we are searching for and what the error is.
+    console.log(`--- AUTH DEBUG: KEY NOT FOUND ---`);
+    console.log(`Searching for key: [${agKey}]`);
+    console.log(`Supabase response error: ${projectError?.message || 'No record returned.'}`);
+    console.log(`---------------------------------`);
+    
+    // Now, to prove what's in the database, let's fetch the project by a known value, like its name
+    const { data: projectByName } = await supabase.from('projects').select('apiguardian_api_key').eq('name', 'hama').single();
+    if(projectByName) {
+        console.log(`DEBUG: Key stored in DB for project 'hama' is: [${projectByName.apiguardian_api_key}]`);
+    } else {
+        console.log("DEBUG: Could not find project named 'hama' to read back key.");
+    }
+    
+    return { isValid: false, status: 401, errorMessage: "APIGuardian API Key not found." };
+  }
+  // --- END OF DEBUG BLOCK ---
   
-  const storedKey = project.apiguardian_api_key;
+  // ... the rest of the working code ...
+  if (!project.openai_api_key_encrypted) { /*...*/ }
+  // ... etc. ...
 
-  // 3. Compare the two keys
-  const areKeysIdentical = sentKey === storedKey;
-
-  // 4. Return a detailed debug message with the comparison
-  return {
-    isValid: false,
-    status: 400,
-    errorMessage: `
-      DEBUG READ-BACK:
-      - Key Sent in Header: [${sentKey}]
-      - Key Stored in DB:   [${storedKey}]
-      - Do they match?      ${areKeysIdentical}
-    `,
-    // Add nulls to satisfy the type contract and prevent build errors
-    project: null,
-    decryptedKey: null,
-    currentSpend: 0,
-  };
+  return { isValid: true, project, /*...*/ };
 }
