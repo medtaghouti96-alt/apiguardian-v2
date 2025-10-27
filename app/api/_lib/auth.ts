@@ -1,79 +1,42 @@
+// File: app/api/_lib/auth.ts (TEMPORARY "Read-Back" DEBUG VERSION)
 import { createClient } from '@supabase/supabase-js';
-import { decryptSecret } from './encryption';
-import { redis } from './redis';
-import { fillSpendCacheForProject } from './cache-filler';
 
-/**
- * This is a temporary debug version of authenticateRequest.
- * It adds a console.log at the beginning to "echo" the incoming Authorization
- * header to the Vercel logs, helping us diagnose why the key might not be found.
- */
 export async function authenticateRequest(request: Request) {
-  // --- START OF DEBUGGING "ECHO" LOG ---
-  const authHeaderForDebug = request.headers.get('Authorization');
-  let agKeyForDebug = null;
-  if (authHeaderForDebug && authHeaderForDebug.startsWith('Bearer ag-')) {
-    agKeyForDebug = authHeaderForDebug.split(' ')[1];
-  }
-  console.log(`DEBUG_ECHO: Received Auth Header=[${authHeaderForDebug || 'NULL'}], Parsed Key=[${agKeyForDebug || 'NULL'}]`);
-  // --- END OF DEBUGGING "ECHO" LOG ---
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  );
-
-  // The rest of the function is our normal, type-safe V2 logic.
+  // 1. Get the key the user SENT in the header
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ag-')) {
-    return { isValid: false, status: 401, errorMessage: "Missing or invalid APIGuardian API Key." };
-  }
-  const agKey = authHeader.split(' ')[1];
+  const sentKey = authHeader ? authHeader.split(' ')[1] : null;
 
-  const { data: project, error: projectError } = await supabase.from('projects')
-    .select('id, user_id, openai_api_key_encrypted, monthly_budget, per_user_budget').eq('apiguardian_api_key', agKey).single();
-
+  // 2. Fetch the project by its NAME to get the key that is STORED in the database
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('apiguardian_api_key')
+    .eq('name', 'hama') // We are finding the project named "hama"
+    .single();
+    
   if (projectError || !project) {
-    return { isValid: false, status: 401, errorMessage: "APIGuardian API Key not found." };
-  }
-  if (!project.openai_api_key_encrypted) {
-    return { isValid: false, status: 401, errorMessage: "Provider API Key is not configured for this project." };
-  }
-
-  const perUserBudget = Number(project.per_user_budget);
-  const endUserId = request.headers.get('x-apiguardian-user-id');
-  if (perUserBudget > 0 && endUserId) {
-    const billingMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const { data: userSpendData } = await supabase.from('monthly_user_spend').select('total_cost')
-      .eq('project_id', project.id).eq('user_id', endUserId).eq('billing_month', billingMonth).single();
-    const currentUserSpend = Number(userSpendData?.total_cost || 0);
-    if (currentUserSpend >= perUserBudget) {
-      return { isValid: false, status: 429, errorMessage: `Usage limit for your account has been exceeded.` };
-    }
-  }
-
-  let currentSpend = 0;
-  const budget = Number(project.monthly_budget);
-  if (budget > 0) {
-    const cacheKey = `total-spend:${project.id}`;
-    const cachedSpend = await redis.get<number>(cacheKey);
-    if (cachedSpend !== null) {
-      currentSpend = cachedSpend;
-    } else {
-      console.warn(`[Auth] Cache MISS for project ${project.id}. Triggering background refill.`);
-      fillSpendCacheForProject(project.id);
-      currentSpend = 0; 
-    }
+      return { isValid: false, status: 404, errorMessage: `DEBUG: Could not find project with name 'hama'.` };
   }
   
-  const masterKey = process.env.ENCRYPTION_KEY;
-  if (!masterKey) {
-    return { isValid: false, status: 500, errorMessage: "Internal Server Configuration Error" };
-  }
-  const decryptedKey = decryptSecret(project.openai_api_key_encrypted, masterKey);
-  if (!decryptedKey) {
-    return { isValid: false, status: 500, errorMessage: "Internal Security Error" };
-  }
+  const storedKey = project.apiguardian_api_key;
 
-  return { isValid: true, project, decryptedKey, currentSpend };
+  // 3. Compare the two keys
+  const areKeysIdentical = sentKey === storedKey;
+
+  // 4. Return a detailed debug message with the comparison
+  return {
+    isValid: false,
+    status: 400,
+    errorMessage: `
+      DEBUG READ-BACK:
+      - Key Sent in Header: [${sentKey}]
+      - Key Stored in DB:   [${storedKey}]
+      - Do they match?      ${areKeysIdentical}
+    `,
+    // Add nulls to satisfy the type contract and prevent build errors
+    project: null,
+    decryptedKey: null,
+    currentSpend: 0,
+  };
 }
