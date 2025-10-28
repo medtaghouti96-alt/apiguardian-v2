@@ -1,3 +1,4 @@
+// File: app/api/projects/[projectId]/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
@@ -10,7 +11,8 @@ export async function PATCH(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
     const projectId = pathname.split('/').pop();
     
-    const { budget, webhookUrl, perUserBudget } = await req.json();
+    // --- 1. Get the new caching fields from the request body ---
+    const { budget, webhookUrl, perUserBudget, cachingEnabled, cacheTtl } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -18,6 +20,7 @@ export async function PATCH(req: NextRequest) {
     if (!projectId) {
       return NextResponse.json({ error: "Project ID is required." }, { status: 400 });
     }
+    // Basic validation
     if (typeof budget !== 'number' || budget < 0) {
         return NextResponse.json({ error: "Invalid budget amount." }, { status: 400 });
     }
@@ -27,15 +30,18 @@ export async function PATCH(req: NextRequest) {
 
     const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
 
+    // --- 2. Add the new fields to the Supabase update statement ---
     const { data, error } = await supabase
       .from('projects')
       .update({ 
         monthly_budget: budget,
         webhook_url: webhookUrl,
-        per_user_budget: perUserBudget
+        per_user_budget: perUserBudget,
+        caching_enabled: cachingEnabled,
+        caching_ttl_seconds: cacheTtl
       })
       .eq('id', projectId)
-      .eq('user_id', userId)
+      .eq('user_id', userId) // Security check
       .select()
       .single();
 

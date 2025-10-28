@@ -2,16 +2,16 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 
-// Import all our final dashboard components
+// Import all our dashboard components
 import CreateProjectForm from './_components/CreateProjectForm';
 import LiveRequestLog from './_components/LiveRequestLog';
 import StatWidgets from './_components/StatWidgets';
-import UserRulesManager from './_components/UserRulesManager';
+import ProjectSettings from './_components/ProjectSettings';
 import CopyButton from './_components/CopyButton';
 
 /**
- * This is the main dashboard page. As a Server Component, it fetches all the initial
- * data for projects and their rules before rendering the page.
+ * This is the main dashboard page. As a Server Component, it fetches all initial
+ * data for projects, including the new caching settings.
  */
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -24,23 +24,25 @@ export default async function DashboardPage() {
     process.env.SUPABASE_SERVICE_KEY!
   );
 
-  // This is a powerful Supabase query that fetches each project AND all of its
-  // related rules from the `per_user_rules` table in a single network call.
+  // This query now fetches all the fields needed for the project cards and settings.
   const { data: projects, error } = await supabase
     .from('projects')
     .select(`
       id,
       name,
       apiguardian_api_key,
-      monthly_budget,
       provider_id,
-      rules:per_user_rules ( id, project_id, rule_type, budget_usd )
+      monthly_budget,
+      webhook_url,
+      per_user_budget,
+      caching_enabled,
+      caching_ttl_seconds
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Error fetching projects and rules:", error);
+    console.error("Error fetching projects:", error);
     return <div>Error loading your projects. Please refresh the page.</div>;
   }
   
@@ -88,9 +90,15 @@ export default async function DashboardPage() {
                   </div>
                 </div>
 
-                {/* --- THE CHANGE: Render the new UserRulesManager --- */}
-                {/* We pass the project's ID and its initial set of rules */}
-                <UserRulesManager projectId={project.id} initialRules={project.rules} />
+                {/* --- Render the settings component with all the new props --- */}
+                <ProjectSettings 
+                  projectId={project.id} 
+                  currentBudget={project.monthly_budget}
+                  currentWebhookUrl={project.webhook_url}
+                  currentPerUserBudget={project.per_user_budget}
+                  currentCachingEnabled={project.caching_enabled}
+                  currentCacheTtl={project.caching_ttl_seconds}
+                />
               </div>
             );
           })}
