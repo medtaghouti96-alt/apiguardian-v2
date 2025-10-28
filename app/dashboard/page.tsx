@@ -25,21 +25,16 @@ export default async function DashboardPage() {
   );
 
   // This query now fetches all the fields needed for the project cards and settings.
-  const { data: projects, error } = await supabase
-    .from('projects')
-    .select(`
-      id,
-      name,
-      apiguardian_api_key,
-      provider_id,
-      monthly_budget,
-      webhook_url,
-      per_user_budget,
-      caching_enabled,
-      caching_ttl_seconds
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+const { data: projects, error } = await supabase
+  .from('projects')
+  .select(`
+    id, name, apiguardian_api_key, provider_id,
+    monthly_budget, webhook_url,
+    caching_enabled, caching_ttl_seconds,
+    rules:per_user_rules ( id, project_id, rule_type, budget_usd )
+  `)
+  .eq('user_id', userId)
+  .order('created_at', { ascending: false });
 
   if (error) {
     console.error("Error fetching projects:", error);
@@ -95,7 +90,7 @@ export default async function DashboardPage() {
                   projectId={project.id} 
                   currentBudget={project.monthly_budget}
                   currentWebhookUrl={project.webhook_url}
-                  currentPerUserBudget={project.per_user_budget}
+                  currentPerUserBudget={null} // <-- THE FIX
                   currentCachingEnabled={project.caching_enabled}
                   currentCacheTtl={project.caching_ttl_seconds}
                 />
