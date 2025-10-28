@@ -10,44 +10,34 @@ export async function GET() {
     const { userId } = await auth();
     if (!userId) return new Response("Unauthorized", { status: 401 });
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
-
+    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
+    
     const { data: projects, error: projectsError } = await supabase
       .from('projects').select('id').eq('user_id', userId);
+    
     if (projectsError) throw projectsError;
     if (!projects || projects.length === 0) {
         return NextResponse.json({ total_cost: 0, total_requests: 0 });
     }
     
     const projectIds = projects.map(p => p.id);
+    const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-    // Get the start of the current month in UTC
-    const today = new Date();
-    const firstDayOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-
-    // Fetch and sum the stats for all of the user's projects for the current month
-    const { data: stats, error: statsError } = await supabase
-      .from('daily_project_stats')
-      .select('total_cost, total_requests')
+    // --- THE SIMPLE FIX: Perform a SUM() query here ---
+    // This is acceptable for a dashboard page load.
+    const { data, error, count } = await supabase
+      .from('api_logs')
+      .select('cost', { count: 'exact' })
       .in('project_id', projectIds)
-      .gte('log_date', firstDayOfMonth.toISOString().split('T')[0]);
+      .gte('created_at', firstDayOfMonth.toISOString());
 
-    if (statsError) throw statsError;
+    if (error) throw error;
 
-    // Calculate the totals
-    const monthlyTotals = stats.reduce(
-        (acc, current) => {
-            acc.total_cost += Number(current.total_cost);
-            acc.total_requests += Number(current.total_requests);
-            return acc;
-        },
-        { total_cost: 0, total_requests: 0 }
-    );
+    const total_cost = data.reduce((acc, log) => acc + Number(log.cost), 0);
+    const total_requests = count || 0;
+    
+    return NextResponse.json({ total_cost, total_requests });
 
-    return NextResponse.json(monthlyTotals);
   } catch (error) {
     console.error("Error fetching stats:", error);
     return NextResponse.json({ error: "Could not fetch stats." }, { status: 500 });
