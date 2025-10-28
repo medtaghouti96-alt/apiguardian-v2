@@ -25,7 +25,7 @@ export async function authenticateRequest(request: Request) {
   // 2. Fetch the corresponding Project from the database.
   const { data: project, error: projectError } = await supabase
     .from('projects')
-    .select('id, user_id, openai_api_key_encrypted, monthly_budget, per_user_budget, caching_enabled, caching_ttl_seconds') // This should be per_user_rules
+    .select('id, user_id, openai_api_key_encrypted, monthly_budget, caching_enabled, caching_ttl_seconds') // This should be per_user_rules
     .eq('apiguardian_api_key', agKey)
     .single();
 
