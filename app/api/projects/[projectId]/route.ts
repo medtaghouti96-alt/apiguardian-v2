@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest) {
       .update({ 
         monthly_budget: budget,
         webhook_url: webhookUrl,
-        per_user_budget: perUserBudget,
+     //   per_user_budget: perUserBudget,
         caching_enabled: cachingEnabled,
         caching_ttl_seconds: cacheTtl
       })
