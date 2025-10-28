@@ -1,4 +1,3 @@
-// File: app/api/projects/[projectId]/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
@@ -11,8 +10,8 @@ export async function PATCH(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
     const projectId = pathname.split('/').pop();
     
-    // --- 1. Get the new caching fields from the request body ---
-    const { budget, webhookUrl, perUserBudget, cachingEnabled, cacheTtl } = await req.json();
+    // --- THE FIX: Remove `perUserBudget` from the body parsing ---
+    const { budget, webhookUrl, cachingEnabled, cacheTtl } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -24,19 +23,20 @@ export async function PATCH(req: NextRequest) {
     if (typeof budget !== 'number' || budget < 0) {
         return NextResponse.json({ error: "Invalid budget amount." }, { status: 400 });
     }
-    if (typeof perUserBudget !== 'number' || perUserBudget < 0) {
-        return NextResponse.json({ error: "Invalid per-user budget amount." }, { status: 400 });
-    }
+    
+    // --- THE FIX: Removed the validation block for the non-existent perUserBudget ---
 
-    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!);
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY!
+    );
 
-    // --- 2. Add the new fields to the Supabase update statement ---
+    // --- THE FIX: Remove `per_user_budget` from the update statement ---
     const { data, error } = await supabase
       .from('projects')
       .update({ 
         monthly_budget: budget,
         webhook_url: webhookUrl,
-     //   per_user_budget: perUserBudget,
         caching_enabled: cachingEnabled,
         caching_ttl_seconds: cacheTtl
       })
