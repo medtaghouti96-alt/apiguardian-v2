@@ -29,8 +29,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ message: "Strategy created successfully." }, { status: 201 });
 
-    } catch (error: any) {
-        console.error("Admin Create Strategy Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    // ... inside the POST function
+    } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Admin Create Strategy Error:", errorMessage);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
