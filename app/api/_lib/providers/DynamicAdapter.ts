@@ -1,11 +1,17 @@
 import { ProviderAdapter, ProviderRequestData } from './interface';
 import { ProviderConfig, getStrategyConfig } from '../config-loader';
 
-// A simple helper to estimate token count from messages
-function estimateTokens(messages: any[]): number {
+// Define a specific, non-any type for the message structure
+type Message = {
+  role: string;
+  content: string | null;
+};
+
+// Update the helper to use the specific type
+function estimateTokens(messages: Message[]): number {
     if (!messages || !Array.isArray(messages)) return 0;
     const fullPrompt = messages.map(m => m.content || '').join('\n');
-    return fullPrompt.length / 4;
+    return fullPrompt.length / 4; // Rough but fast estimation
 }
 
 export class DynamicAdapter implements ProviderAdapter {
@@ -17,47 +23,41 @@ export class DynamicAdapter implements ProviderAdapter {
     this.config = config;
   }
 
-  // The `transformRequest` function is now async to handle fetching the strategy
   async transformRequest(decryptedApiKey: string, requestBody: Record<string, unknown>, slug: string[]): Promise<ProviderRequestData> {
     let modelToUse = requestBody.model as string;
     
-    // --- THE UNIVERSAL SMART ROUTING LOGIC ---
     if (modelToUse && modelToUse.startsWith('@')) {
-        console.log(`[Smart Routing] Virtual model '${modelToUse}' detected for provider '${this.id}'.`);
-        
-        const strategy = await getStrategyConfig(this.id, modelToUse);
+        const virtualModelName = modelToUse.split('/')[1] || modelToUse;
+        const strategy = await getStrategyConfig(this.id, virtualModelName);
         if (!strategy) {
-            throw new Error(`Smart strategy '${modelToUse}' not found for provider '${this.id}'.`);
+            throw new Error(`Smart strategy '${virtualModelName}' not found for provider '${this.id}'.`);
         }
 
-        // --- THE STRATEGY ENGINE ---
         let chosenModelName: string | undefined = undefined;
-
         if (strategy.strategy_logic === 'quality_threshold') {
-            const estimatedTokens = estimateTokens(requestBody.messages as any[]);
+            // Use the specific type cast for safety
+            const estimatedTokens = estimateTokens(requestBody.messages as Message[]);
             
+            // Use non-null assertion (!) because we know these params exist for this logic
             const highTierModel = strategy.candidate_models.find(m => m.quality_tier === strategy.strategy_params.high_tier_quality);
             const lowTierModel = strategy.candidate_models.find(m => m.quality_tier === strategy.strategy_params.low_tier_quality);
             
-            if (estimatedTokens > strategy.strategy_params.threshold) {
+            if (estimatedTokens > strategy.strategy_params.threshold!) {
                 chosenModelName = highTierModel?.model_name;
             } else {
                 chosenModelName = lowTierModel?.model_name;
             }
         }
-        // Future logic for other strategies like 'lowest_cost' would go here
         
         if (!chosenModelName) {
-            throw new Error(`Could not determine a real model for strategy '${modelToUse}'. Check strategy configuration.`);
+            throw new Error(`Could not determine a real model for strategy '${virtualModelName}'.`);
         }
         
         console.log(`[Smart Routing] Chose real model: ${chosenModelName}`);
         modelToUse = chosenModelName;
     }
 
-    // Rewrite the request body with the final chosen model name
     const bodyToForward = { ...requestBody, model: modelToUse };
-    
     const path = slug.join('/');
     const url = `${this.config.base_url}/${path}`;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -66,7 +66,6 @@ export class DynamicAdapter implements ProviderAdapter {
     return { url, headers, body: JSON.stringify(bodyToForward) };
   }
 
-  // The `parseResponse` function does not need to change.
   async parseResponse(response: Response) {
     const responseData = await response.json();
     if (responseData.error) {
