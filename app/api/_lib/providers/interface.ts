@@ -6,6 +6,6 @@ export interface ProviderRequestData {
 }
 export interface ProviderAdapter {
   id: string;
-  transformRequest(decryptedApiKey: string, requestBody: Record<string, unknown>, slug: string[]): ProviderRequestData;
+  transformRequest(decryptedApiKey: string, requestBody: Record<string, unknown>, slug: string[]): Promise<ProviderRequestData>;
   parseResponse(response: Response): Promise<{ model: string; promptTokens: number; completionTokens: number; }>;
 }

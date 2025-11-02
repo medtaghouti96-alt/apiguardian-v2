@@ -4,19 +4,23 @@ interface ForwardRequestParams {
   request: Request;
   decryptedKey: string;
   adapter: ProviderAdapter;
-  slug: string[]; // <-- ADDED
+  slug: string[];
 }
 
 export async function forwardRequestToProvider({
   request,
   decryptedKey,
   adapter,
-  slug, // <-- ADDED
+  slug,
 }: ForwardRequestParams): Promise<Response> {
-  const providerRequest = adapter.transformRequest(
+  const requestBody = await request.json();
+
+  // --- THE FIX: Add the 'await' keyword ---
+  // `transformRequest` is now async because it may need to fetch a strategy from the DB.
+  const providerRequest = await adapter.transformRequest(
     decryptedKey,
-    await request.json(),
-    slug // <-- PASS THE SLUG
+    requestBody,
+    slug
   );
 
   return fetch(providerRequest.url, {
